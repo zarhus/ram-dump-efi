@@ -1,7 +1,7 @@
-# RAM data remanence tester
+# RAM data dumper
 
-This UEFI application was made to help with testing RAM data remanence after
-powering off the platform.
+This UEFI application minimalistic application to dump RAM. Based on
+[Dasharo/ram-remanence-tester](https://github.com/Dasharo/ram-remanence-tester).
 
 ## Building
 
@@ -31,10 +31,13 @@ RAM and EFI descriptors. Then, it will start dumping values of RAM addresses
 from EFI descriptors into the drive from which it has been booted. The RAM will
 be dumped into files with name prepended with the date and time and appended
 with the dumping start address. The application will dump RAM only from
-addresses specified on the descriptors printed.
+addresses specified on the descriptors printed. Example output:
+
+![example-output](./ram-dump-example-output.png)
 
 ## Credits
 
-This research has been supported by Power Up Privacy, a privacy advocacy group
-that seeks to supercharge privacy projects with resources so they can complete
-their mission of making our world a better place.
+This research has been supported by [Power Up
+Privacy](https://powerupprivacy.com/), a privacy advocacy group that seeks to
+supercharge privacy projects with resources so they can complete their mission
+of making our world a better place.
