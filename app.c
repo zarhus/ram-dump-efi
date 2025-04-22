@@ -162,19 +162,19 @@ static VOID DumpOneEntry (EFI_HANDLE ImageHandle, UINTN I)
 
 	for (UINT64 P = 0; P < Mmap[I].NumberOfPages; P++) {
 		UINT64 *Ptr = (UINT64 *)(Mmap[I].PhysicalStart + P * PAGE_SIZE);
-		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
-			if (CurrentFileSize >= MAX_FILE_SIZE){
-				FinalizeResults(File);
-				GetFileName(FileName, (UINT64)Ptr);
-				CreateResultFile(ImageHandle, &File, FileName);
-				CurrentFileSize = 0;
-			}
-
-			WriteByte(File, (UINT8)(*Ptr));
-			Ptr++;
-			CurrentFileSize++;
+		if (CurrentFileSize >= (MAX_FILE_SIZE - PAGE_SIZE)){
+			FinalizeResults(File);
+			GetFileName(FileName, (UINT64)Ptr);
+			CreateResultFile(ImageHandle, &File, FileName);
+			CurrentFileSize = 0;
 		}
+
+		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
+			WriteByte(File, (UINT8)(Ptr[Q]));
+		}
+
 		PagesDone++;
+		CurrentFileSize+=PAGE_SIZE;
 		ShowProgress();
 	}
 
@@ -215,13 +215,11 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 	Print(L"\nMemory dump done\n");
 
 	Print(L"\nPress %HR%N to reboot, %HS%N to shut down\n");
-	WaitForSingleEvent(ST->ConIn->WaitForKey, 0);
-	uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &Key);
 
-	while (Key.UnicodeChar != L'r' && Key.UnicodeChar != L's') {
+	do{
 		WaitForSingleEvent(ST->ConIn->WaitForKey, 0);
 		uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &Key);
-	}
+	} while (Key.UnicodeChar != L'r' && Key.UnicodeChar != L's');
 
 	if (Key.UnicodeChar == L's')
 		Status = uefi_call_wrapper(gRT->ResetSystem, 4, EfiResetShutdown, EFI_SUCCESS,
