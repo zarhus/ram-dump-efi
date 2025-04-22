@@ -5,9 +5,12 @@ This UEFI application minimalistic application to dump RAM. Based on
 
 ## Building
 
+Supported architectures:
+- `x86_64`
+
 Prerequisites:
 
-- `gcc`, `make` & friends
+- `gcc`, `make`
 - `gnu-efi`
 - `gnu-efi-devel`
 
