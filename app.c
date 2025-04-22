@@ -170,7 +170,7 @@ static VOID DumpOneEntry (EFI_HANDLE ImageHandle, UINTN I)
 		}
 
 		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
-			WriteByte(File, (UINT8)(Ptr[Q]));
+			WriteByte(File, ((UINT8*)(Ptr))[Q]);
 		}
 
 		PagesDone++;
