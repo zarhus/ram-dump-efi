@@ -2,7 +2,7 @@
 #include <efilib.h>
 
 #define MAX_FILE_SIZE (UINT64)0xa0000000 /* 2684354560 bytes */
-
+#define PATTERN (UINT64)0xaddeefbeaddeefbe
 #define PAGE_SIZE 0x1000
 
 static VOID Halt()
@@ -133,15 +133,158 @@ static VOID CreateResultFile(EFI_HANDLE ImageHandle, EFI_FILE_PROTOCOL **File, C
 	Assert(*File != NULL);
 }
 
-static VOID WriteByte(EFI_FILE_PROTOCOL *File, UINT8 Byte)
+static VOID Write8Bytes(EFI_FILE_PROTOCOL *File, UINT64 Bytes)
 {
-	UINTN Len = (UINTN)sizeof(UINT8);
+	UINTN Len = (UINTN)sizeof(UINT64);
+	CHAR8 *Str = (CHAR8*)(&Bytes);
 	EFI_STATUS Status;
 
-	Status = uefi_call_wrapper(File->Write, 3, File, &Len, (void*)(&Byte));
+	Status = uefi_call_wrapper(File->Write, 3, File, &Len, (void*)Str);
 	Assert(Status == EFI_SUCCESS);
 }
 
+static VOID WriteOneEntry (UINTN I)
+{
+	for (UINT64 P = 0; P < Mmap[I].NumberOfPages; P++) {
+		UINT64 *Ptr = (UINT64 *)(Mmap[I].PhysicalStart + P * PAGE_SIZE);
+		for (UINT64 Q = 0; Q < PAGE_SIZE/sizeof(UINT64); Q++) {
+			Ptr[Q] = PATTERN;
+		}
+
+		PagesDone++;
+		ShowProgress();
+	}
+}
+
+static UINTN ExcludeRange (UINTN I, UINT64 Base, UINT64 NumPages)
+{
+	Print(L"\nExcluding range @ 0x%llx, %lld pages\n", Base, NumPages);
+	/*
+	 * There are 4 cases, sorted by increasing complexity:
+	 * 1. Excluded range is at the end of an entry. Decrease entry's
+	 *    NumberOfPages.
+	 * 2. Excluded range is at the beginning of an entry. Decrease entry's
+	 *    NumberOfPages and increase PhysicalStart.
+	 * 3. Whole Mmap entry is removed. Decrease MmapEntries by one and shift
+	 *    (copy) the remaining entries down by one place.
+	 * 4. Excluded range is in the middle of an entry. Entry must be split into
+	 *    two entries. 1st new entry has PhysicalStart same as the original and
+	 *    the NumberOfPages modified to end just before Base. 2nd entry has
+	 *    PhysicalStart equal to end of excluded range and NumberOfPages equal
+	 *    to original NumberOfPages reduced by sum of NumPages and 1st entry's
+	 *    NumberOfPages. MmapEntries is increased (up to MEMORY_DESC_MAX),
+	 *    remaining entries are shifted (copied) up by one place, original entry
+	 *    is overwritten by 1st new entry and 2nd entry is written immediately
+	 *    after that.
+	 *
+	 * Case 3 is a subset of both cases 1 and 2, so it must be checked before
+	 * them.
+	 */
+	EFI_MEMORY_DESCRIPTOR *OrigEntry = &Mmap[I];
+	EFI_MEMORY_DESCRIPTOR NewEntries[2] = {0};
+
+	Assert (OrigEntry->PhysicalStart <= Base);
+	Assert (OrigEntry->NumberOfPages >= NumPages);
+	Assert (OrigEntry->PhysicalStart + OrigEntry->NumberOfPages * PAGE_SIZE >=
+	        Base + NumPages * PAGE_SIZE);
+
+	if (Base == OrigEntry->PhysicalStart &&
+	    NumPages == OrigEntry->NumberOfPages) {
+		/* Case 3. */
+		/*
+		 * Test for strictly greater than 1, so we won't end up with
+		 * MmapEntries == 0 after the operation.
+		 */
+		Assert (MmapEntries > 1);
+		/* Safe, last entry would result in size equal to 0, no need to test. */
+		CopyMem (OrigEntry, OrigEntry + 1,
+		         (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
+		MmapEntries--;
+
+		return 1;
+	} else if (Base + NumPages * PAGE_SIZE ==
+	           OrigEntry->PhysicalStart + OrigEntry->NumberOfPages * PAGE_SIZE) {
+		/* Case 1. */
+		OrigEntry->NumberOfPages -= NumPages;
+
+		return 0;
+	} else if (Base == OrigEntry->PhysicalStart &&
+	           NumPages != OrigEntry->NumberOfPages) {
+		/* Case 2. */
+		OrigEntry->NumberOfPages -= NumPages;
+		OrigEntry->PhysicalStart += NumPages * PAGE_SIZE;
+
+		return 0;
+	} else {
+		/* Case 4. */
+		Assert (MmapEntries < MEMORY_DESC_MAX);
+		/* Create new entries with original one used as a template. */
+		NewEntries[0] = *OrigEntry;
+		NewEntries[0].NumberOfPages = (Base - OrigEntry->PhysicalStart) /
+		                              PAGE_SIZE;
+		NewEntries[1] = *OrigEntry;
+		NewEntries[1].PhysicalStart = Base + NumPages * PAGE_SIZE;
+		NewEntries[1].NumberOfPages = OrigEntry->NumberOfPages -
+		                              NewEntries[0].NumberOfPages -
+		                              NumPages;
+		/*
+		 * Move remaining entries to make room for new ones. Safe,
+		 * I = MmapEntries - 1 would result in size equal to 0 so no copy,
+		 * otherwise OrigEntry is at most pointing to Mmap[MmapEntries - 2],
+		 * and Assert() above makes sure that
+		 * OrigEntry + 2 < Mmap[MEMORY_DESC_MAX - 2 + 2], so
+		 * OrigEntry + 2 < Mmap[MEMORY_DESC_MAX].
+		 */
+		CopyMem (OrigEntry + 2, OrigEntry + 1,
+		         (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
+		/* Insert new entries and update number of entries. */
+		CopyMem (OrigEntry, NewEntries, sizeof(NewEntries));
+		MmapEntries++;
+
+		return 0;
+	}
+}
+
+static UINTN ExcludeOneEntry (UINTN I)
+{
+	BOOLEAN WasSame = TRUE;
+	UINT64 First = (UINT64)-1, Last = 0;
+	UINT64 *Ptr;
+	for (UINTN P = 0; P < Mmap[I].NumberOfPages; P++) {
+		Ptr = (UINT64 *)(Mmap[I].PhysicalStart + P * PAGE_SIZE);
+		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
+			if (*Ptr != PATTERN) {
+				if (WasSame == TRUE || (P == 0 && Q == 0)) {
+					First = (UINT64)Ptr & ~(UINT64)(PAGE_SIZE - 1);
+				}
+				WasSame = FALSE;
+			} else {
+				if (WasSame == FALSE) {
+					/*
+					 * Last is actually the first address on new page that is
+					 * the same as expected. This makes it easier to convert to
+					 * number of pages.
+					 */
+					Last = (UINT64)Ptr + PAGE_SIZE - 1;
+					Last &= ~(UINT64)(PAGE_SIZE - 1);
+
+					ExcludeRange (I, First, (Last - First) / PAGE_SIZE);
+					First = (UINT64)-1;
+					Last = 0;
+				}
+				WasSame = TRUE;
+			}
+			Ptr++;
+		}
+		PagesDone++;
+		ShowProgress();
+	}
+	if (First != (UINT64)-1) {
+		return ExcludeRange (I, First, ((UINT64)Ptr - First) / PAGE_SIZE);
+	}
+
+	return 0;
+}
 static VOID FinalizeResults(EFI_FILE_PROTOCOL *File)
 {
 	EFI_STATUS Status;
@@ -169,8 +312,8 @@ static VOID DumpOneEntry (EFI_HANDLE ImageHandle, UINTN I)
 			CurrentFileSize = 0;
 		}
 
-		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
-			WriteByte(File, ((UINT8*)(Ptr))[Q]);
+		for (UINT64 Q = 0; Q < PAGE_SIZE/sizeof(UINT64); Q++) {
+			Write8Bytes(File, Ptr[Q]);
 		}
 
 		PagesDone++;
@@ -188,6 +331,10 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
 	EFI_INPUT_KEY Key;
+	EFI_GUID VarGuid = { 0x865a4a83, 0x19e9, 0x4f5b, {0x84, 0x06, 0xbc, 0xa0, 0xdb, 0x86, 0x91, 0x5e} };
+	CHAR16 VarName[] = L"TestedMemoryMap";
+	UINTN VarSize;
+	UINT32 NVAttr = EFI_VARIABLE_BOOTSERVICE_ACCESS | EFI_VARIABLE_RUNTIME_ACCESS | EFI_VARIABLE_NON_VOLATILE;
 
 	InitializeLib(ImageHandle, SystemTable);
 
@@ -204,15 +351,53 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
 	InitMemmap();
 
-	Print(L"\n\nDumping memory...\n");
-	UpdateTotalPages();
+	Print(L"\n\nChoose the mode:\n");
+	Print(L"%H1%N. Pattern write\n");
+	Print(L"%H2%N. Exclude modified by firmware\n\n");
+	Print(L"%H3%N. Dump\n");
 
-	for (UINTN I = 0; I < MmapEntries; I++) {
-		DumpOneEntry(ImageHandle, I);
+	WaitForSingleEvent(ST->ConIn->WaitForKey, 0);
+	uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &Key);
+
+
+	if (Key.UnicodeChar == L'1') {
+		Print(L"Writing pattern was selected\n");
+		for (UINTN I = 0; I < MmapEntries; I++) {
+			WriteOneEntry(I);
+		}
+		Print(L"\nWriting done\n");
+	} else if (Key.UnicodeChar == L'2') {
+		Print(L"Exclude modified by firmware was selected\n");
+		UINTN I = 0;
+
+		while (I < MmapEntries) {
+			if (ExcludeOneEntry(I) == 0)
+				I++;
+		}
+
+		VarSize = MmapEntries * sizeof(EFI_MEMORY_DESCRIPTOR);
+		Status = uefi_call_wrapper(gRT->SetVariable, 5, VarName, &VarGuid,
+		                           NVAttr, VarSize, Mmap);
+		Assert (Status == EFI_SUCCESS);
+		Print(L"\nExclude modified by firmware done\n");
 	}
+	else if (Key.UnicodeChar == L'3') {
+		VarSize = sizeof(Mmap);
+		Status = uefi_call_wrapper(gRT->GetVariable, 5, VarName, &VarGuid,
+		                           NULL, &VarSize, Mmap);
+		Assert (Status == EFI_SUCCESS);
+		Assert (VarSize % sizeof(EFI_MEMORY_DESCRIPTOR) == 0);
+		MmapEntries = VarSize / sizeof(EFI_MEMORY_DESCRIPTOR);
+		UpdateTotalPages();
 
-	Assert (Status == EFI_SUCCESS);
-	Print(L"\nMemory dump done\n");
+		Print(L"\n\nDumping memory...\n");
+		for (UINTN I = 0; I < MmapEntries; I++) {
+			DumpOneEntry(ImageHandle, I);
+		}
+
+		Assert (Status == EFI_SUCCESS);
+		Print(L"\nMemory dump done!\n");
+	}
 
 	Print(L"\nPress %HR%N to reboot, %HS%N to shut down\n");
 
