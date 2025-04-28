@@ -118,6 +118,28 @@ There are two major limitations of the application:
   firmware](https://docs.dasharo.com/) on several platforms, including QEMU, and
   the assumption always fulfilled.
 
+## Validation script
+
+Analyzing dumped memory manually is close to impossible. You can instead use the
+script located in `scripts/validation.py`. The tool reads bytes from a file
+given by the first argument and returns lists of zero and non-zero regions. It
+analyzes data in blocks of 65536 bytes - zero regions smaller than that will not
+be taken into account. It's important to note that the input file needs to
+conform to the naming scheme used by the RAM dumper - 
+`<datetime>_<hex_start_address>.csv`. The script will calculate the physical
+address of each block by adding the offset to the start address.
+
+Example usage and output:
+
+```bash
+python3 scripts/validate.py 2025_04_23_04_36_0x0000000000100000.csv
+=== Zeroed Memory Regions ===
+0x00100000 - 0x00200000
+
+=== Non-Zero Memory Regions ===
+0x00200000 - 0x00800000
+```
+
 ## Credits
 
 This research has been supported by [Power Up
