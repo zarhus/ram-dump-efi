@@ -252,7 +252,7 @@ static UINTN ExcludeOneEntry (UINTN I)
 	UINT64 *Ptr;
 	for (UINTN P = 0; P < Mmap[I].NumberOfPages; P++) {
 		Ptr = (UINT64 *)(Mmap[I].PhysicalStart + P * PAGE_SIZE);
-		for (UINT64 Q = 0; Q < PAGE_SIZE; Q++) {
+		for (UINT64 Q = 0; Q < PAGE_SIZE/sizeof(UINT64); Q++) {
 			if (*Ptr != PATTERN) {
 				if (WasSame == TRUE || (P == 0 && Q == 0)) {
 					First = (UINT64)Ptr & ~(UINT64)(PAGE_SIZE - 1);
