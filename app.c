@@ -279,6 +279,8 @@ static UINTN ExcludeOneEntry (UINTN I)
 					}
 					else if (Ret == 3)
 						return 3;
+					else if (Ret == 4)
+						return 4;
 					First = (UINT64)-1;
 					Last = 0;
 				}
