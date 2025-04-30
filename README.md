@@ -121,11 +121,11 @@ There are two major limitations of the application:
 ## Validation script
 
 Analyzing dumped memory manually is close to impossible. You can instead use the
-script located in `scripts/validation.py`. The tool reads bytes from a file
-given by the first argument and returns lists of zero and non-zero regions. It
-analyzes data in blocks of 65536 bytes - zero regions smaller than that will not
-be taken into account. It's important to note that the input file needs to
-conform to the naming scheme used by the RAM dumper - 
+script located in `scripts/validation.py`. The tool reads bytes from `csv` files
+in the directory given by the first argument and returns lists of zero and
+non-zero regions. It analyzes data in blocks of 65536 bytes - zero regions
+smaller than that will not be taken into account. It's important to note that
+the input files need to conform to the naming scheme used by the RAM dumper -
 `<datetime>_<hex_start_address>.csv`. The script will calculate the physical
 address of each block by adding the offset to the start address.
 
