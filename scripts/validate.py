@@ -16,6 +16,24 @@ def get_base_address(filename):
         raise ValueError(f"Could not parse start address from filename: {filename}")
     return int(match.group(1), 16)
 
+# For some reason zeroed memory sometimes contains several patterns like this:
+# 0000 0000 0000 0000 0011 0001 0000 0000 (hex)
+# This needs to be treated as 0 by the tool
+# Effectively, this function analyzes a block and returns True only if all its
+# non-zero patterns are a multiple of \x11\x01.
+def is_effectively_zero(block):
+    allowed_pattern = b'\x11\x01'
+    if all(b == 0 for b in block):
+        return True
+    non_zero_bytes = bytes(b for b in block if b != 0)
+    if not non_zero_bytes:
+        return True
+    if len(non_zero_bytes) % len(allowed_pattern) != 0:
+        return False
+
+    repeated = allowed_pattern * (len(non_zero_bytes) // len(allowed_pattern))
+    return non_zero_bytes == repeated
+
 def analyze_ram_dump(filepath):
     print(f"Analyzing {os.path.basename(filepath)}\n")
     base_address = get_base_address(os.path.basename(filepath))
@@ -37,9 +55,9 @@ def analyze_ram_dump(filepath):
             start_addr = base_address + offset
             end_addr = start_addr + len(block)
             if is_zero is None:
-                is_zero = all(b == 0 for b in block) 
+                is_zero = is_effectively_zero(block)
                 region_start = start_addr
-            elif is_zero != all(b == 0 for b in block):
+            elif is_zero != is_effectively_zero(block):
                 # Flush previous region
                 if is_zero:
                     zero_regions.append((region_start, start_addr))
