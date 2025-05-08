@@ -44,7 +44,7 @@ static VOID UpdateTotalPages(VOID)
 		TotalPages += Mmap[I].NumberOfPages;
 }
 
-static VOID ShowProgress (VOID)
+static VOID ShowProgress(VOID)
 {
 	static INTN Prev = -1;
 	INTN Current = (PagesDone * 100)/TotalPages;
@@ -54,7 +54,7 @@ static VOID ShowProgress (VOID)
 	}
 }
 
-static VOID InitMemmap (VOID)
+static VOID InitMemmap(VOID)
 {
 	UINTN MMSize = sizeof(Mmap);
 	UINTN MapKey;
@@ -146,7 +146,7 @@ static VOID Write8Bytes(EFI_FILE_PROTOCOL *File, UINT64 Bytes)
 	Assert(Status == EFI_SUCCESS);
 }
 
-static VOID WriteOneEntry (UINTN I)
+static VOID WriteOneEntry(UINTN I)
 {
 	for (UINT64 P = 0; P < Mmap[I].NumberOfPages; P++) {
 		UINT64 *Ptr = (UINT64 *)(Mmap[I].PhysicalStart + P * PAGE_SIZE);
@@ -159,7 +159,7 @@ static VOID WriteOneEntry (UINTN I)
 	}
 }
 
-static UINTN ExcludeRange (UINTN I, UINT64 Base, UINT64 NumPages)
+static UINTN ExcludeRange(UINTN I, UINT64 Base, UINT64 NumPages)
 {
 	Print(L"\nExcluding range @ 0x%llx, %lld pages\n", Base, NumPages);
 	/*
@@ -248,7 +248,7 @@ static UINTN ExcludeRange (UINTN I, UINT64 Base, UINT64 NumPages)
 	}
 }
 
-static UINTN ExcludeOneEntry (UINTN I)
+static UINTN ExcludeOneEntry(UINTN I)
 {
 	BOOLEAN WasSame = TRUE;
 	UINT64 First = (UINT64)-1, Last = 0;
@@ -309,7 +309,7 @@ static VOID FinalizeResults(EFI_FILE_PROTOCOL *File)
 	Assert(Status == EFI_SUCCESS);
 }
 
-static VOID DumpOneEntry (EFI_HANDLE ImageHandle, UINTN I)
+static VOID DumpOneEntry(EFI_HANDLE ImageHandle, UINTN I)
 {
 	CHAR16 FileName[50];
 	EFI_FILE_PROTOCOL *File = NULL;
@@ -342,7 +342,7 @@ static VOID DumpOneEntry (EFI_HANDLE ImageHandle, UINTN I)
 
 /* No EFIAPI here. Not sure why, but gnu-efi converts this to SysV */
 EFI_STATUS
-efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
+efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 {
 	EFI_STATUS Status = EFI_SUCCESS;
 	EFI_INPUT_KEY Key;
