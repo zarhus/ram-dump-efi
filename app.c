@@ -122,14 +122,17 @@ static VOID CreateResultFile(EFI_HANDLE ImageHandle, EFI_FILE_PROTOCOL **File, C
 	Status = uefi_call_wrapper(gBS->HandleProtocol, 3, Loaded->DeviceHandle,
 	                           &gEfiSimpleFileSystemProtocolGuid,
 	                           (VOID **)&SimpleFs);
+	Assert(Status == EFI_SUCCESS);
 	Assert(SimpleFs != NULL);
 
 	Status = uefi_call_wrapper(SimpleFs->OpenVolume, 2, SimpleFs, &Root);
+	Assert(Status == EFI_SUCCESS);
 	Assert(Root != NULL);
 
 	Status = uefi_call_wrapper(Root->Open, 5, Root, File, Name,
 	                           EFI_FILE_MODE_CREATE | EFI_FILE_MODE_WRITE |
 	                           EFI_FILE_MODE_READ, 0);
+	Assert(Status == EFI_SUCCESS);
 	Assert(*File != NULL);
 }
 
@@ -418,9 +421,11 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		uefi_call_wrapper(ST->ConIn->ReadKeyStroke, 2, ST->ConIn, &Key);
 	} while (Key.UnicodeChar != L'r' && Key.UnicodeChar != L's');
 
-	if (Key.UnicodeChar == L's')
+	if (Key.UnicodeChar == L's') {
 		Status = uefi_call_wrapper(gRT->ResetSystem, 4, EfiResetShutdown, EFI_SUCCESS,
 		                           0, NULL);
+		Assert(Status == EFI_SUCCESS);
+	}
 
 	Status = uefi_call_wrapper(gRT->ResetSystem, 4, EfiResetWarm, EFI_SUCCESS,
 	                           0, NULL);
