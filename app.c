@@ -186,9 +186,9 @@ static UINTN ExcludeRange(UINTN I, UINT64 Base, UINT64 NumPages)
 	EFI_MEMORY_DESCRIPTOR *OrigEntry = &Mmap[I];
 	EFI_MEMORY_DESCRIPTOR NewEntries[2] = {0};
 
-	Assert (OrigEntry->PhysicalStart <= Base);
-	Assert (OrigEntry->NumberOfPages >= NumPages);
-	Assert (OrigEntry->PhysicalStart + OrigEntry->NumberOfPages * PAGE_SIZE >=
+	Assert(OrigEntry->PhysicalStart <= Base);
+	Assert(OrigEntry->NumberOfPages >= NumPages);
+	Assert(OrigEntry->PhysicalStart + OrigEntry->NumberOfPages * PAGE_SIZE >=
 	        Base + NumPages * PAGE_SIZE);
 
 	if (Base == OrigEntry->PhysicalStart &&
@@ -198,10 +198,10 @@ static UINTN ExcludeRange(UINTN I, UINT64 Base, UINT64 NumPages)
 		 * Test for strictly greater than 1, so we won't end up with
 		 * MmapEntries == 0 after the operation.
 		 */
-		Assert (MmapEntries > 1);
+		Assert(MmapEntries > 1);
 		/* Safe, last entry would result in size equal to 0, no need to test. */
-		CopyMem (OrigEntry, OrigEntry + 1,
-		         (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
+		CopyMem(OrigEntry, OrigEntry + 1,
+		        (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
 		MmapEntries--;
 
 		return 3;
@@ -220,7 +220,7 @@ static UINTN ExcludeRange(UINTN I, UINT64 Base, UINT64 NumPages)
 		return 2;
 	} else {
 		/* Case 4. */
-		Assert (MmapEntries < MEMORY_DESC_MAX);
+		Assert(MmapEntries < MEMORY_DESC_MAX);
 		/* Create new entries with original one used as a template. */
 		NewEntries[0] = *OrigEntry;
 		NewEntries[0].NumberOfPages = (Base - OrigEntry->PhysicalStart) /
@@ -238,10 +238,10 @@ static UINTN ExcludeRange(UINTN I, UINT64 Base, UINT64 NumPages)
 		 * OrigEntry + 2 < Mmap[MEMORY_DESC_MAX - 2 + 2], so
 		 * OrigEntry + 2 < Mmap[MEMORY_DESC_MAX].
 		 */
-		CopyMem (OrigEntry + 2, OrigEntry + 1,
-		         (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
+		CopyMem(OrigEntry + 2, OrigEntry + 1,
+		        (MmapEntries - I - 1) * sizeof(EFI_MEMORY_DESCRIPTOR));
 		/* Insert new entries and update number of entries. */
-		CopyMem (OrigEntry, NewEntries, sizeof(NewEntries));
+		CopyMem(OrigEntry, NewEntries, sizeof(NewEntries));
 		MmapEntries++;
 
 		return 4;
@@ -271,7 +271,7 @@ static UINTN ExcludeOneEntry(UINTN I)
 					Last = (UINT64)Ptr + PAGE_SIZE - 1;
 					Last &= ~(UINT64)(PAGE_SIZE - 1);
 
-					UINTN Ret = ExcludeRange (I, First, (Last - First) / PAGE_SIZE);
+					UINTN Ret = ExcludeRange(I, First, (Last - First) / PAGE_SIZE);
 
 					if (Ret == 2){
 						First = (UINT64)-1;
@@ -295,7 +295,7 @@ static UINTN ExcludeOneEntry(UINTN I)
 		ShowProgress();
 	}
 	if (First != (UINT64)-1) {
-		return ExcludeRange (I, First, ((UINT64)Ptr - First) / PAGE_SIZE);
+		return ExcludeRange(I, First, ((UINT64)Ptr - First) / PAGE_SIZE);
 	}
 
 	return 0;
@@ -393,15 +393,15 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 		VarSize = MmapEntries * sizeof(EFI_MEMORY_DESCRIPTOR);
 		Status = uefi_call_wrapper(gRT->SetVariable, 5, VarName, &VarGuid,
 		                           NVAttr, VarSize, Mmap);
-		Assert (Status == EFI_SUCCESS);
+		Assert(Status == EFI_SUCCESS);
 		Print(L"\nExclude modified by firmware done\n");
 	}
 	else if (Key.UnicodeChar == L'3') {
 		VarSize = sizeof(Mmap);
 		Status = uefi_call_wrapper(gRT->GetVariable, 5, VarName, &VarGuid,
 		                           NULL, &VarSize, Mmap);
-		Assert (Status == EFI_SUCCESS);
-		Assert (VarSize % sizeof(EFI_MEMORY_DESCRIPTOR) == 0);
+		Assert(Status == EFI_SUCCESS);
+		Assert(VarSize % sizeof(EFI_MEMORY_DESCRIPTOR) == 0);
 		MmapEntries = VarSize / sizeof(EFI_MEMORY_DESCRIPTOR);
 		UpdateTotalPages();
 
@@ -410,7 +410,7 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 			DumpOneEntry(ImageHandle, I);
 		}
 
-		Assert (Status == EFI_SUCCESS);
+		Assert(Status == EFI_SUCCESS);
 		Print(L"\nMemory dump done!\n");
 	}
 
