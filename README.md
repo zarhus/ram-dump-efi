@@ -132,7 +132,7 @@ address of each block by adding the offset to the start address.
 Example usage and output:
 
 ```bash
-python3 scripts/validate.py 2025_04_23_04_36_0x0000000000100000.csv
+python3 scripts/validate.py ./
 === Zeroed Memory Regions ===
 0x00100000 - 0x00200000
 
