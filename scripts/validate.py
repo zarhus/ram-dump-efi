@@ -40,6 +40,9 @@ def analyze_ram_dump(filepath):
 
     zero_regions = []
     non_zero_regions = []
+    region_size = 0
+    zero_regions_size = 0
+    non_zero_regions_size = 0
 
     with open(filepath, 'rb') as f:
         is_zero = None
@@ -76,12 +79,19 @@ def analyze_ram_dump(filepath):
 
     print("=== Zeroed Memory Regions ===")
     for start, end in zero_regions:
-        print(f"0x{start:08x} - 0x{end:08x}")
+        region_size = end - start
+        zero_regions_size += region_size
+        print(f"0x{start:08x} - 0x{end:08x}; size: {region_size}")
 
     print("\n=== Non-Zero Memory Regions ===")
     for start, end in non_zero_regions:
-        print(f"0x{start:08x} - 0x{end:08x}")
+        region_size = end - start
+        non_zero_regions_size += region_size
+        print(f"0x{start:08x} - 0x{end:08x}; size: {region_size}")
     
+    print (f"\nAll zeroed regions size in this sector: {zero_regions_size}")
+    print (f"All non zeroed regions size in this sector: {non_zero_regions_size}")
+
     print("\n===========================\n")
 
 if len(sys.argv) < 2:
