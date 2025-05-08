@@ -72,9 +72,9 @@ excluded or shrunk from the dump.
 
 ## Limitations and issues
 
-There are two magor limitation of the application:
-1. Sometimes firmware may pollute RAM with a lot of data with leng about one
-  page that are separated by not modified by firmware addresses, e.g.:
+There are two major limitations of the application:
+1. Sometimes firmware may pollute RAM with a lot of data with a length of about
+  one page that is separated with addresses unmodified by firmware, e.g.:
 
     ```bash
     71c0a1c0  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  |................|
@@ -115,7 +115,7 @@ There are two magor limitation of the application:
 1. The second step (excluding RAM modified by firmware) assumes that firmware
   writes its data under the same addresses during every boot. This might not be
   true for some firmware. The application was tested on [Dasharo
-  firmware](https://docs.dasharo.com/) on several platforms, including Qemu, and
+  firmware](https://docs.dasharo.com/) on several platforms, including QEMU, and
   the assumption always fulfilled.
 
 ## Credits
